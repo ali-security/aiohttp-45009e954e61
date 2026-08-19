@@ -392,6 +392,10 @@ texinfo_documents = [
 # -------------------------------------------------------------------------
 nitpicky = True
 nitpick_ignore = [
+    # removed from CPython in 3.14, so it is gone from the live intersphinx
+    # inventory at docs.python.org that the doc build resolves against; only
+    # referenced from a historical CHANGES.rst entry
+    ("py:class", "asyncio.ThreadedChildWatcher"),
     ("py:mod", "aiohttp"),  # undocumented, no `.. currentmodule:: aiohttp` in docs
     ("py:class", "aiohttp.SimpleCookie"),  # undocumented
     ("py:class", "aiohttp.web.RequestHandler"),  # undocumented

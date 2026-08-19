@@ -1040,16 +1040,48 @@ def test_parse_set_cookie_headers_date_formats_with_attributes() -> None:
     assert result[1][1]["samesite"] == "Strict"
 
 
+def _stdlib_allows_control_chars_in_cookies() -> bool:
+    """Whether http.cookies still accepts control characters in a cookie value.
+
+    CPython patch releases published after aiohttp 3.12.14 hardened
+    SimpleCookie.__setitem__ to raise CookieError for control characters, so the
+    octal escapes below can no longer round-trip on those interpreters. Gate on
+    the observed stdlib behaviour rather than on a version number, so these
+    cases keep running wherever the interpreter still permits them.
+    """
+    try:
+        SimpleCookie()["probe"] = "\n"
+    except CookieError:
+        return False
+    return True
+
+
+_CONTROL_CHAR_COOKIES_SUPPORTED = _stdlib_allows_control_chars_in_cookies()
+
+
 @pytest.mark.parametrize(
     ("header", "expected_name", "expected_value", "expected_coded"),
     [
         # Test cookie values with octal escape sequences
-        (r'name="\012newline\012"', "name", "\nnewline\n", r'"\012newline\012"'),
-        (
+        pytest.param(
+            r'name="\012newline\012"',
+            "name",
+            "\nnewline\n",
+            r'"\012newline\012"',
+            marks=pytest.mark.skipif(
+                not _CONTROL_CHAR_COOKIES_SUPPORTED,
+                reason="stdlib http.cookies rejects control characters",
+            ),
+        ),
+        pytest.param(
             r'tab="\011separated\011values"',
             "tab",
             "\tseparated\tvalues",
             r'"\011separated\011values"',
+            marks=pytest.mark.skipif(
+                not _CONTROL_CHAR_COOKIES_SUPPORTED,
+                reason="stdlib http.cookies rejects control characters",
+            ),
         ),
         (
             r'mixed="hello\040world\041"',
@@ -1057,11 +1089,15 @@ def test_parse_set_cookie_headers_date_formats_with_attributes() -> None:
             "hello world!",
             r'"hello\040world\041"',
         ),
-        (
+        pytest.param(
             r'complex="\042quoted\042 text with \012 newline"',
             "complex",
             '"quoted" text with \n newline',
             r'"\042quoted\042 text with \012 newline"',
+            marks=pytest.mark.skipif(
+                not _CONTROL_CHAR_COOKIES_SUPPORTED,
+                reason="stdlib http.cookies rejects control characters",
+            ),
         ),
     ],
 )
